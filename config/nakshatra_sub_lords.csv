@@ -1,0 +1,109 @@
+Nakshatra,Pada,Planet,Sub_Lord,Sub_Sub_Lord
+Ashwini,1,Ketu,Ketu,Venus
+Ashwini,2,Ketu,Venus,Sun
+Ashwini,3,Ketu,Sun,Moon
+Ashwini,4,Ketu,Moon,Mars
+Bharani,1,Venus,Mars,Rahu
+Bharani,2,Venus,Rahu,Jupiter
+Bharani,3,Venus,Jupiter,Saturn
+Bharani,4,Venus,Saturn,Mercury
+Krittika,1,Sun,Mercury,Ketu
+Krittika,2,Sun,Ketu,Venus
+Krittika,3,Sun,Venus,Sun
+Krittika,4,Sun,Sun,Moon
+Rohini,1,Moon,Moon,Mars
+Rohini,2,Moon,Mars,Rahu
+Rohini,3,Moon,Rahu,Jupiter
+Rohini,4,Moon,Jupiter,Saturn
+Mrigashira,1,Mars,Saturn,Mercury
+Mrigashira,2,Mars,Mercury,Ketu
+Mrigashira,3,Mars,Ketu,Venus
+Mrigashira,4,Mars,Venus,Sun
+Ardra,1,Rahu,Sun,Moon
+Ardra,2,Rahu,Moon,Mars
+Ardra,3,Rahu,Mars,Rahu
+Ardra,4,Rahu,Rahu,Jupiter
+Punarvasu,1,Jupiter,Jupiter,Saturn
+Punarvasu,2,Jupiter,Saturn,Mercury
+Punarvasu,3,Jupiter,Mercury,Ketu
+Punarvasu,4,Jupiter,Ketu,Venus
+Pushya,1,Saturn,Venus,Sun
+Pushya,2,Saturn,Sun,Moon
+Pushya,3,Saturn,Moon,Mars
+Pushya,4,Saturn,Mars,Rahu
+Ashlesha,1,Mercury,Rahu,Jupiter
+Ashlesha,2,Mercury,Jupiter,Saturn
+Ashlesha,3,Mercury,Saturn,Mercury
+Ashlesha,4,Mercury,Mercury,Ketu
+Magha,1,Ketu,Ketu,Venus
+Magha,2,Ketu,Venus,Sun
+Magha,3,Ketu,Sun,Moon
+Magha,4,Ketu,Moon,Mars
+Purva Phalguni,1,Venus,Mars,Rahu
+Purva Phalguni,2,Venus,Rahu,Jupiter
+Purva Phalguni,3,Venus,Jupiter,Saturn
+Purva Phalguni,4,Venus,Saturn,Mercury
+Uttara Phalguni,1,Sun,Mercury,Ketu
+Uttara Phalguni,2,Sun,Ketu,Venus
+Uttara Phalguni,3,Sun,Venus,Sun
+Uttara Phalguni,4,Sun,Sun,Moon
+Hasta,1,Moon,Moon,Mars
+Hasta,2,Moon,Mars,Rahu
+Hasta,3,Moon,Rahu,Jupiter
+Hasta,4,Moon,Jupiter,Saturn
+Chitra,1,Mars,Saturn,Mercury
+Chitra,2,Mars,Mercury,Ketu
+Chitra,3,Mars,Ketu,Venus
+Chitra,4,Mars,Venus,Sun
+Swati,1,Rahu,Sun,Moon
+Swati,2,Rahu,Moon,Mars
+Swati,3,Rahu,Mars,Rahu
+Swati,4,Rahu,Rahu,Jupiter
+Vishakha,1,Jupiter,Jupiter,Saturn
+Vishakha,2,Jupiter,Saturn,Mercury
+Vishakha,3,Jupiter,Mercury,Ketu
+Vishakha,4,Jupiter,Ketu,Venus
+Anuradha,1,Saturn,Venus,Sun
+Anuradha,2,Saturn,Sun,Moon
+Anuradha,3,Saturn,Moon,Mars
+Anuradha,4,Saturn,Mars,Rahu
+Jyeshtha,1,Mercury,Rahu,Jupiter
+Jyeshtha,2,Mercury,Jupiter,Saturn
+Jyeshtha,3,Mercury,Saturn,Mercury
+Jyeshtha,4,Mercury,Mercury,Ketu
+Mula,1,Ketu,Ketu,Venus
+Mula,2,Ketu,Venus,Sun
+Mula,3,Ketu,Sun,Moon
+Mula,4,Ketu,Moon,Mars
+Purva Ashadha,1,Venus,Mars,Rahu
+Purva Ashadha,2,Venus,Rahu,Jupiter
+Purva Ashadha,3,Venus,Jupiter,Saturn
+Purva Ashadha,4,Venus,Saturn,Mercury
+Uttara Ashadha,1,Sun,Mercury,Ketu
+Uttara Ashadha,2,Sun,Ketu,Venus
+Uttara Ashadha,3,Sun,Venus,Sun
+Uttara Ashadha,4,Sun,Sun,Moon
+Shravana,1,Moon,Moon,Mars
+Shravana,2,Moon,Mars,Rahu
+Shravana,3,Moon,Rahu,Jupiter
+Shravana,4,Moon,Jupiter,Saturn
+Dhanishta,1,Mars,Saturn,Mercury
+Dhanishta,2,Mars,Mercury,Ketu
+Dhanishta,3,Mars,Ketu,Venus
+Dhanishta,4,Mars,Venus,Sun
+Shatabhisha,1,Rahu,Sun,Moon
+Shatabhisha,2,Rahu,Moon,Mars
+Shatabhisha,3,Rahu,Mars,Rahu
+Shatabhisha,4,Rahu,Rahu,Jupiter
+Purva Bhadrapada,1,Jupiter,Jupiter,Saturn
+Purva Bhadrapada,2,Jupiter,Saturn,Mercury
+Purva Bhadrapada,3,Jupiter,Mercury,Ketu
+Purva Bhadrapada,4,Jupiter,Ketu,Venus
+Uttara Bhadrapada,1,Saturn,Venus,Sun
+Uttara Bhadrapada,2,Saturn,Sun,Moon
+Uttara Bhadrapada,3,Saturn,Moon,Mars
+Uttara Bhadrapada,4,Saturn,Mars,Rahu
+Revati,1,Mercury,Rahu,Jupiter
+Revati,2,Mercury,Jupiter,Saturn
+Revati,3,Mercury,Saturn,Mercury
+Revati,4,Mercury,Mercury,Ketu
