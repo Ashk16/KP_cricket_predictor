@@ -1,127 +1,64 @@
-# KP Astrology Favorability Rules Engine
-# Determines whether a period favors Ascendant or Descendant based on KP principles
+from scripts.chart_generator import generate_kp_chart
 
-from typing import List, Dict
+# Dummy house significators (should be replaced with KP logic)
+def get_significator_houses(planet: str, chart: dict) -> list:
+    house_map = {
+        "Sun": [1, 5, 9],
+        "Moon": [4, 8, 12],
+        "Mars": [3, 6, 11],
+        "Mercury": [2, 10],
+        "Jupiter": [1, 7],
+        "Venus": [4, 11],
+        "Saturn": [6, 8],
+        "Rahu": [5, 12],
+        "Ketu": [3, 9]
+    }
+    return house_map.get(planet, [])
 
-# Define house groups based on favorability with weights
-ASCENDANT_HOUSE_WEIGHTS = {
-    1: 10, 3: 8, 6: 10, 10: 12, 11: 10
-}
-DESCENDANT_HOUSE_WEIGHTS = {
-    4: 6, 5: 8, 7: 10, 8: 12, 12: 6
-}
+# Dummy conjunctions
+def get_conjunctions(planet: str, chart: dict) -> list:
+    # Replace with actual planet positions logic
+    return []
 
-# Planet strength weights (arbitrary scale, can be tuned)
-PLANET_STRENGTHS = {
-    "Jupiter": 10,
-    "Venus": 9,
-    "Mercury": 8,
-    "Moon": 7,
-    "Sun": 6,
-    "Mars": 7,
-    "Saturn": 6,
-    "Rahu": 5,
-    "Ketu": 5
-}
+# Dummy ruling planets
+def get_ruling_planets(dt, lat, lon) -> list:
+    # This could return Lagna lord, Moon sign lord, day lord, etc.
+    return ["Moon", "Venus"]
 
-BENEFIC_PLANETS = ["Jupiter", "Venus", "Mercury", "Moon"]
-MALEFIC_PLANETS = ["Saturn", "Mars", "Rahu", "Ketu", "Sun"]
+# Chart creation wrapper
+def create_chart(dt, lat, lon):
+    return generate_kp_chart(dt, lat, lon)
 
-
-def favorability_score(significators: List[int], planet_name: str, is_retrograde=False, is_combust=False, conjunct_with=[], star_lord=None, ruling_planets=[]) -> int:
+# Dummy evaluator function
+def evaluate_period(data: dict, asc_sign: str) -> int:
     score = 0
-    planet_strength = PLANET_STRENGTHS.get(planet_name, 5)
 
-    # House contributions
-    for house in significators:
-        if house in ASCENDANT_HOUSE_WEIGHTS:
-            score += ASCENDANT_HOUSE_WEIGHTS[house]
-        elif house in DESCENDANT_HOUSE_WEIGHTS:
-            score -= DESCENDANT_HOUSE_WEIGHTS[house]
+    favored_houses = [1, 3, 6, 10, 11]
+    weak_houses = [5, 8, 12]
 
-    # Apply strength multiplier
-    score = int(score * (planet_strength / 10))
+    for planet in ["Sub_Lord", "Sub_Sub_Lord"]:
+        houses = data.get(f"{planet}_Houses", [])
+        for h in houses:
+            if h in favored_houses:
+                score += 10
+            elif h in weak_houses:
+                score -= 10
 
-    # Retrograde or combust adjustments
-    if is_retrograde or is_combust:
-        if planet_name in BENEFIC_PLANETS:
-            score -= int(planet_strength * 0.5)
-        elif planet_name in MALEFIC_PLANETS:
-            score -= int(planet_strength * 0.3)
-
-    # Star lord influence
-    if star_lord:
-        if star_lord in BENEFIC_PLANETS:
-            score += 5
-        elif star_lord in MALEFIC_PLANETS:
-            score -= 5
-
-    # Conjunction influence
-    for planet in conjunct_with:
-        if planet in BENEFIC_PLANETS:
-            score += 3
-        elif planet in MALEFIC_PLANETS:
-            score -= 3
-
-    # Ruling planets support
-    if planet_name in ruling_planets:
+    # Apply bonus for ruling planet match
+    if data["Sub_Lord"] in data["Ruling_Planets"]:
+        score += 15
+    if data["Sub_Sub_Lord"] in data["Ruling_Planets"]:
         score += 10
 
-    return score
+    # Penalties
+    if data["Sub_Lord_Retrograde"]:
+        score -= 5
+    if data["Sub_Sub_Lord_Retrograde"]:
+        score -= 3
 
+    if data["Sub_Lord_Combust"]:
+        score -= 7
+    if data["Sub_Sub_Lord_Combust"]:
+        score -= 4
 
-def evaluate_period(sub_lord_data: Dict, ascendant_sign: str) -> str:
-    sub_score = favorability_score(
-        sub_lord_data['Sub_Lord_Houses'],
-        sub_lord_data['Sub_Lord'],
-        sub_lord_data['Sub_Lord_Retrograde'],
-        sub_lord_data['Sub_Lord_Combust'],
-        conjunct_with=sub_lord_data.get('Sub_Lord_Conjunct', []),
-        star_lord=sub_lord_data.get('Sub_Lord_Star_Lord'),
-        ruling_planets=sub_lord_data.get('Ruling_Planets', [])
-    )
-
-    sub_sub_score = favorability_score(
-        sub_lord_data['Sub_Sub_Lord_Houses'],
-        sub_lord_data['Sub_Sub_Lord'],
-        sub_lord_data['Sub_Sub_Lord_Retrograde'],
-        sub_lord_data['Sub_Sub_Lord_Combust'],
-        conjunct_with=sub_lord_data.get('Sub_Sub_Lord_Conjunct', []),
-        star_lord=sub_lord_data.get('Sub_Sub_Lord_Star_Lord'),
-        ruling_planets=sub_lord_data.get('Ruling_Planets', [])
-    )
-
-    total_score = sub_score + sub_sub_score
-
-    if total_score >= 50:
-        return f"Strongly Ascendant (+{total_score})"
-    elif total_score >= 20:
-        return f"Ascendant (+{total_score})"
-    elif total_score <= -50:
-        return f"Strongly Descendant ({total_score})"
-    elif total_score <= -20:
-        return f"Descendant ({total_score})"
-    else:
-        return f"Neutral ({total_score})"
-
-
-# Example usage
-if __name__ == "__main__":
-    period_data = {
-        'Sub_Lord': 'Saturn',
-        'Sub_Sub_Lord': 'Mercury',
-        'Sub_Lord_Houses': [1, 6, 11],
-        'Sub_Sub_Lord_Houses': [4, 8],
-        'Sub_Lord_Retrograde': False,
-        'Sub_Sub_Lord_Retrograde': True,
-        'Sub_Lord_Combust': False,
-        'Sub_Sub_Lord_Combust': False,
-        'Sub_Lord_Conjunct': ['Moon'],
-        'Sub_Sub_Lord_Conjunct': ['Ketu'],
-        'Sub_Lord_Star_Lord': 'Venus',
-        'Sub_Sub_Lord_Star_Lord': 'Saturn',
-        'Ruling_Planets': ['Mercury', 'Saturn']
-    }
-
-    result = evaluate_period(period_data, ascendant_sign="Libra")
-    print(f"This period favors: {result}")
+    return max(-100, min(100, score))  # Clamp between -100 and +100
