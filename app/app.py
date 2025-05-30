@@ -1,9 +1,14 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+print("PYTHON PATH:", sys.path)
 import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
 
+
+from scripts.chart_generator import create_chart
 from scripts.kp_favorability_rules import (
-    create_chart,
     get_significator_houses,
     get_conjunctions,
     get_ruling_planets,

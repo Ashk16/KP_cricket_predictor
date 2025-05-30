@@ -1,3 +1,5 @@
 pyswisseph
 pandas
 streamlit
+flatlib
+pytz
