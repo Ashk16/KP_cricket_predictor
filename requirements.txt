@@ -1,5 +1,4 @@
-pyswisseph
 pandas
 streamlit
-flatlib
-pytz
+swisseph
+geopy
