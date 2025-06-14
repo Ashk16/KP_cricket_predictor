@@ -229,9 +229,15 @@ def display_df_colored(df):
     styler.hide(axis="index")
     st.dataframe(styler, use_container_width=True)
 
-# --- UI Layout ---
+def parse_time_string(time_str):
+    for fmt in ("%H:%M:%S", "%H:%M"):
+        try:
+            return datetime.strptime(time_str, fmt).time()
+        except ValueError:
+            continue
+    raise ValueError(f"Time data '{time_str}' is not in a recognized format (expected HH:MM or HH:MM:SS)")
 
-st.title("🪐 KP Cricket Predictor Dashboard")
+# --- UI Layout ---
 
 # --- Session State Initialization (must be at the very top, before any widgets) ---
 if 'match_name' not in st.session_state:
@@ -244,140 +250,173 @@ if 'latitude' not in st.session_state:
     st.session_state.latitude = 0.0
 if 'longitude' not in st.session_state:
     st.session_state.longitude = 0.0
-if 'df_to_display' not in st.session_state:
-    st.session_state.df_to_display = None
-if 'file_being_displayed' not in st.session_state:
-    st.session_state.file_being_displayed = None
+if 'active_matches' not in st.session_state:
+    st.session_state.active_matches = {}  # Dictionary to store match timelines
+if 'closed_matches' not in st.session_state:
+    st.session_state.closed_matches = set()  # Set to track closed matches
 
-# --- Sidebar ---
-st.sidebar.title("Controls")
+st.title("🪐 KP Cricket Predictor Dashboard")
 
-# Section: Generate New Timeline
-st.sidebar.header("1. Generate New Timeline")
-st.sidebar.text_input("Match Title", key="match_name")
-st.sidebar.date_input("Match Date (YYYY-MM-DD)", key="match_date")
-st.sidebar.text_input("Match Start Time (HH:MM, 24-hr)", key="match_time_str")
-
-# --- Location Search ---
-st.sidebar.markdown("---")
-location_query = st.sidebar.text_input("Search for Match Venue (e.g., 'Mumbai, India')")
-if st.sidebar.button("Find Coordinates", key="find_coords_btn"):
-    if location_query:
-        with st.spinner("Finding location..."):
-            coords = get_coordinates(location_query)
-        if coords:
-            st.session_state.latitude, st.session_state.longitude = coords
-            st.sidebar.success(f"Found: Lat {coords[0]:.4f}, Lon {coords[1]:.4f}")
-            # Use st.rerun() to immediately update the number_input widgets below
-            st.rerun()
-        else:
-            st.sidebar.error("Location not found or service unavailable.")
-    else:
-        st.sidebar.warning("Please enter a location to search for.")
-st.sidebar.markdown("---")
-
-st.sidebar.number_input("Latitude", key="latitude", format="%.4f")
-st.sidebar.number_input("Longitude", key="longitude", format="%.4f")
-
-if st.sidebar.button("Generate Timeline", type="primary", key="generate_timeline_btn"):
-    try:
-        # Use a timezone-aware object for start_datetime
-        # This is a placeholder; a more robust app would let the user specify the timezone
-        local_tz = pytz.timezone("Asia/Kolkata") 
-        match_time = datetime.strptime(st.session_state.match_time_str, "%H:%M").time()
-        
-        # Combine date and time, then localize
-        naive_datetime = datetime.combine(st.session_state.match_date, match_time)
-        start_datetime = local_tz.localize(naive_datetime)
-
-        with st.spinner("Generating astrological timeline... This is now much faster!"):
-            timeline_df, filepath = generate_and_save_timeline(
-                start_datetime, 
-                st.session_state.latitude, 
-                st.session_state.longitude, 
-                st.session_state.match_name
-            )
-        
-        if timeline_df is not None:
-            st.success(f"Generated and saved: {os.path.basename(filepath)}")
-            st.session_state.df_to_display = timeline_df
-            st.session_state.file_being_displayed = os.path.basename(filepath)
-            st.rerun()
-        else:
-            st.warning("No valid timeline data generated.")
-
-    except Exception as e:
-        st.error(f"Error during generation: {e}")
-
-# Section: View Saved Timeline
-st.sidebar.header("2. View Saved Timeline")
-saved_timelines = get_saved_timelines()
-
-if not saved_timelines:
-    st.sidebar.write("No saved timelines found.")
-else:
-    selected_file = st.sidebar.selectbox("Select a timeline", [""] + saved_timelines)
+# --- Sidebar Controls ---
+with st.sidebar:
+    st.header("Match Settings")
     
-    if st.sidebar.button("Load Selected Timeline"):
-        if selected_file:
-            try:
-                file_path = os.path.join(RESULTS_DIR, selected_file)
-                df = pd.read_csv(file_path, comment='#')
-                st.session_state.df_to_display = df
-                st.session_state.file_being_displayed = selected_file
-                
-                # Load metadata and populate input fields
-                metadata = load_metadata_from_csv(file_path)
-                if metadata:
-                    st.session_state.match_name = metadata.get("Match Name", st.session_state.match_name)
-                    try:
-                        st.session_state.match_date = datetime.strptime(metadata.get("Match Date"), "%Y-%m-%d")
-                    except (ValueError, TypeError):
-                        pass # Keep default on error
-                    st.session_state.match_time_str = metadata.get("Start Time", st.session_state.match_time_str)
-                    try:
-                        st.session_state.latitude = float(metadata.get("Latitude", st.session_state.latitude))
-                        st.session_state.longitude = float(metadata.get("Longitude", st.session_state.longitude))
-                    except (ValueError, TypeError):
-                        pass # Keep default on error
+    # Section: Generate New Timeline
+    st.subheader("1. Generate New Timeline")
+    
+    # Match Details
+    match_name = st.text_input("Match Name", value=st.session_state.match_name)
+    match_date = st.date_input("Match Date", value=st.session_state.match_date)
+    match_time_str = st.text_input("Match Time (HH:MM)", value=st.session_state.match_time_str)
+    
+    # Location Search
+    st.subheader("Location")
+    location_query = st.text_input("Search for Match Venue (e.g., 'Mumbai, India')")
+    if st.button("Find Coordinates"):
+        if location_query:
+            with st.spinner("Finding location..."):
+                coords = get_coordinates(location_query)
+            if coords:
+                st.session_state.latitude, st.session_state.longitude = coords
+                st.success(f"Found: Lat {coords[0]:.4f}, Lon {coords[1]:.4f}")
                 st.rerun()
-
-            except Exception as e:
-                st.error(f"Error loading file: {e}")
+            else:
+                st.error("Location not found or service unavailable.")
         else:
-            st.sidebar.warning("Please select a file from the dropdown first.")
+            st.warning("Please enter a location to search for.")
+    
+    # Manual Location Input
+    lat = st.number_input("Latitude", value=st.session_state.latitude, format="%.4f")
+    lon = st.number_input("Longitude", value=st.session_state.longitude, format="%.4f")
+    
+    # Generate Button
+    if st.button("Generate Timeline"):
+        try:
+            # Parse match time
+            match_time = parse_time_string(match_time_str)
+            match_datetime = datetime.combine(match_date, match_time)
+            
+            # Generate timeline
+            timeline_df, filepath = generate_and_save_timeline(
+                match_datetime, 
+                lat, 
+                lon, 
+                match_name
+            )
+            
+            if timeline_df is not None:
+                # Store in session state
+                st.session_state.active_matches[match_name] = timeline_df
+                
+                # Update session state
+                st.session_state.match_name = match_name
+                st.session_state.match_date = match_date
+                st.session_state.match_time_str = match_time_str
+                st.session_state.latitude = lat
+                st.session_state.longitude = lon
+                
+                st.success(f"Timeline generated for {match_name}!")
+                st.rerun()
+            else:
+                st.warning("No valid timeline data generated.")
+            
+        except Exception as e:
+            st.error(f"Error generating timeline: {str(e)}")
+    
+    # Section: Load Saved Timeline
+    st.subheader("2. Load Saved Timeline")
+    saved_timelines = get_saved_timelines()
+    
+    if not saved_timelines:
+        st.write("No saved timelines found.")
+    else:
+        selected_file = st.selectbox("Select a timeline", [""] + saved_timelines)
+        
+        if st.button("Load Selected Timeline"):
+            if selected_file:
+                try:
+                    file_path = os.path.join(RESULTS_DIR, selected_file)
+                    df = pd.read_csv(file_path, comment='#')
+                    
+                    # Extract match name from filename
+                    match_name = os.path.splitext(selected_file)[0]
+                    
+                    # Store in active matches
+                    st.session_state.active_matches[match_name] = df
+                    
+                    # Load metadata and populate input fields
+                    metadata = load_metadata_from_csv(file_path)
+                    if metadata:
+                        st.session_state.match_name = metadata.get("Match Name", st.session_state.match_name)
+                        try:
+                            st.session_state.match_date = datetime.strptime(metadata.get("Match Date"), "%Y-%m-%d")
+                        except (ValueError, TypeError):
+                            pass
+                        st.session_state.match_time_str = metadata.get("Start Time", st.session_state.match_time_str)
+                        try:
+                            st.session_state.latitude = float(metadata.get("Latitude", st.session_state.latitude))
+                            st.session_state.longitude = float(metadata.get("Longitude", st.session_state.longitude))
+                        except (ValueError, TypeError):
+                            pass
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Error loading file: {e}")
+            else:
+                st.warning("Please select a file from the dropdown first.")
 
 # --- Display Section ---
-if 'df_to_display' in st.session_state and st.session_state.df_to_display is not None:
-    df = st.session_state.df_to_display
-
-    # --- Time Chart for Final Score ---
-    st.markdown("### Favorability Timeline")
-    chart_data = df[['datetime', 'final_score']].copy()
-    chart_data['datetime'] = pd.to_datetime(chart_data['datetime'])
-    chart_data['above_zero'] = chart_data['final_score'].apply(lambda x: max(x, 0))
-    chart_data['below_zero'] = chart_data['final_score'].apply(lambda x: min(x, 0))
-
-    import altair as alt
-    base = alt.Chart(chart_data).encode(x=alt.X('datetime:T', title='Time'))
-    area_green = base.mark_area(opacity=0.5, color='green').encode(
-        y=alt.Y('above_zero:Q', title='Final Score')
-    )
-    area_red = base.mark_area(opacity=0.5, color='red').encode(
-        y='below_zero:Q'
-    )
-    line = base.mark_line(color='black', strokeWidth=2).encode(
-        y='final_score:Q'
-    )
-    zero_line = base.mark_rule(color='gray', strokeDash=[4,4]).encode(y=alt.datum(0))
-    chart = (area_green + area_red + line + zero_line).properties(height=300, width='container')
-    st.altair_chart(chart, use_container_width=True)
-
-    # --- Table ---
-    st.markdown("### Timeline Table")
-    display_df_colored(df)
+if st.session_state.active_matches:
+    # Create tabs for each active match
+    tabs = st.tabs(list(st.session_state.active_matches.keys()))
+    
+    # Display each match in its tab
+    for tab, (match_name, df) in zip(tabs, st.session_state.active_matches.items()):
+        with tab:
+            col1, col2 = st.columns([0.9, 0.1])
+            with col1:
+                st.markdown(f"### {match_name} Timeline")
+            with col2:
+                if st.button("Close", key=f"close_{match_name}"):
+                    st.session_state.closed_matches.add(match_name)
+                    st.rerun()
+            
+            # Time Chart for Final Score
+            st.markdown("#### Favorability Timeline")
+            chart_data = df[['datetime', 'final_score']].copy()
+            chart_data['datetime'] = pd.to_datetime(chart_data['datetime'])
+            chart_data['above_zero'] = chart_data['final_score'].apply(lambda x: max(x, 0))
+            chart_data['below_zero'] = chart_data['final_score'].apply(lambda x: min(x, 0))
+            
+            import altair as alt
+            base = alt.Chart(chart_data).encode(x=alt.X('datetime:T', title='Time'))
+            area_green = base.mark_area(opacity=0.5, color='green').encode(
+                y=alt.Y('above_zero:Q', title='Final Score')
+            )
+            area_red = base.mark_area(opacity=0.5, color='red').encode(
+                y=alt.Y('below_zero:Q', title='Final Score')
+            )
+            line = base.mark_line(color='black').encode(
+                y=alt.Y('final_score:Q', title='Final Score')
+            )
+            zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[5,5]).encode(y='y')
+            
+            chart = (area_green + area_red + line + zero_line).properties(
+                width='container',
+                height=300
+            )
+            st.altair_chart(chart, use_container_width=True)
+            
+            # Display the color-coded table
+            display_df_colored(df)
 else:
     st.info("Generate a new timeline or load a saved one using the controls in the sidebar.")
+
+# Clean up closed matches
+for match_name in st.session_state.closed_matches:
+    if match_name in st.session_state.active_matches:
+        del st.session_state.active_matches[match_name]
+st.session_state.closed_matches.clear()
 
 # Add custom CSS to reduce margins and make the table full width
 st.markdown("""
