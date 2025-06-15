@@ -1,0 +1,36 @@
+KP CRICKET PREDICTOR - SIMPLE MODEL TRAINING REPORT
+============================================================
+Generated: 2025-06-16 01:23:00
+
+DATASET INFORMATION:
+  Train: 21,575 periods
+  Test: 6,132 periods
+  Holdout: 3,086 periods
+
+BINARY CLASSIFICATION RESULTS:
+  Model Type: threshold
+  Best Feature: performance_difference
+  Train Accuracy: 0.572
+  Test Accuracy: 0.578
+  Holdout Accuracy: 0.572
+
+  Feature Rankings (by test accuracy):
+    1. performance_difference: 0.578
+    2. actual_performance_strength: 0.505
+    3. duration_minutes: 0.499
+    4. kp_prediction_score: 0.489
+    5. kp_prediction_strength: 0.479
+
+MULTI-CLASS CLASSIFICATION RESULTS:
+  Model Type: kp_strength
+  Train Accuracy: 0.232
+  Test Accuracy: 0.247
+  Holdout Accuracy: 0.249
+
+ANALYSIS:
+  Binary vs Random (50%): +7.8 percentage points
+  Multi-class vs Random (20%): +4.7 percentage points
+  Binary model shows predictive power
+  Multi-class model needs improvement
+
+SIMPLE MODEL TRAINING COMPLETE!

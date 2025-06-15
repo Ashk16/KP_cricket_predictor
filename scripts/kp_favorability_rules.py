@@ -589,42 +589,76 @@ def calculate_planet_strength(planet: str, chart: dict, ruling_planets: List[str
     return asc_score, desc_score, strength_details
 
 
-def evaluate_favorability(chart: dict, nakshatra_df: pd.DataFrame = None) -> Dict:
+def evaluate_favorability(muhurta_chart: dict, current_chart: dict = None, nakshatra_df: pd.DataFrame = None) -> Dict:
     """
-    Evaluates the overall favorability for the Ascendant based on the Moon's lords.
-    The nakshatra_df is passed from the higher level function to avoid reloading.
+    Evaluates the overall favorability using AUTHENTIC KP METHODOLOGY:
+    1. Muhurta chart provides the house system (ascendant, house cusps)
+    2. Current planetary positions are analyzed against muhurta chart houses
+    3. This mimics how a real KP astrologer analyzes match events
+    
+    Args:
+        muhurta_chart: Chart cast for match start time (foundation)
+        current_chart: Chart cast for current delivery time (if None, uses muhurta_chart)
+        nakshatra_df: Nakshatra subdivision data
     """
-    if not chart or "error" in chart:
-        return {"error": "Invalid chart provided."}
+    if not muhurta_chart or "error" in muhurta_chart:
+        return {"error": "Invalid muhurta chart provided."}
+    
+    # If no current chart provided, use muhurta chart (backward compatibility)
+    if current_chart is None or "error" in current_chart:
+        current_chart = muhurta_chart
 
-    # Load nakshatra data once if not passed, though the app should always pass it
+    # Load nakshatra data once if not passed
     if nakshatra_df is None:
         nakshatra_df = pd.read_csv("config/nakshatra_sub_lords_longitudes.csv")
     
-    # Determine Ruling Planets for this specific moment
-    ruling_planets = get_ruling_planets(chart, nakshatra_df)
+    # AUTHENTIC KP ANALYSIS:
+    # 1. Use MUHURTA CHART's house system (ascendant, house cusps) as foundation
+    # 2. Use CURRENT CHART's planetary positions for analysis
+    # 3. Determine ruling planets from BOTH charts
+    
+    # Create hybrid chart for analysis
+    analysis_chart = {
+        "datetime": current_chart["datetime"],
+        "ascendant_degree": muhurta_chart["ascendant_degree"],  # Muhurta ascendant
+        "houses": muhurta_chart["houses"],  # Muhurta house system
+        "planets": current_chart["planets"],  # Current planetary positions
+        "moon_longitude": current_chart["moon_longitude"],
+        "moon_nakshatra": current_chart["moon_nakshatra"],
+        "moon_pada": current_chart["moon_pada"],
+        "moon_sub_lord": current_chart["moon_sub_lord"],
+        "moon_sub_sub_lord": current_chart["moon_sub_sub_lord"],
+        "moon_sign": current_chart["moon_sign"],
+        "moon_sign_lord": current_chart["moon_sign_lord"],
+        "moon_star_lord": current_chart["moon_star_lord"]
+    }
+    
+    # Determine Ruling Planets from BOTH charts (authentic KP method)
+    muhurta_ruling_planets = get_ruling_planets(muhurta_chart, nakshatra_df)
+    current_ruling_planets = get_ruling_planets(current_chart, nakshatra_df)
+    # Combine and deduplicate ruling planets
+    combined_ruling_planets = list(set(muhurta_ruling_planets + current_ruling_planets))
 
-    # Get Moon's hierarchical lords
-    moon_sl = chart.get("moon_star_lord")
-    moon_sub = chart.get("moon_sub_lord")
-    moon_ssl = chart.get("moon_sub_sub_lord")
+    # Get Moon's hierarchical lords from CURRENT chart
+    moon_sl = current_chart.get("moon_star_lord")
+    moon_sub = current_chart.get("moon_sub_lord")
+    moon_ssl = current_chart.get("moon_sub_sub_lord")
 
     total_asc_score = 0
     total_desc_score = 0
     
     lord_details = {}
 
-    # Calculate strength for each lord
+    # Calculate strength for each lord using HYBRID analysis
     for lord_type, lord_name in [("moon_sl", moon_sl), ("moon_sub", moon_sub), ("moon_ssl", moon_ssl)]:
         if lord_name:
-            asc_score, desc_score, details = calculate_planet_strength(lord_name, chart, ruling_planets, nakshatra_df)
+            asc_score, desc_score, details = calculate_planet_strength(lord_name, analysis_chart, combined_ruling_planets, nakshatra_df)
             
             # The individual score for the lord is the net difference
             lord_details[f"{lord_type}_score"] = asc_score - desc_score
             lord_details[f"{lord_type}_details"] = details
             
             # Accumulate weighted scores for the final verdict
-            # CORRECTED: Use the key from the loop which matches the corrected LORD_WEIGHTS keys
             weight = LORD_WEIGHTS.get(lord_type.replace("moon_", ""), 0)
             total_asc_score += asc_score * weight
             total_desc_score += desc_score * weight
@@ -634,7 +668,9 @@ def evaluate_favorability(chart: dict, nakshatra_df: pd.DataFrame = None) -> Dic
 
     summary = {
         "final_score": final_score,
-        "ruling_planets": ",".join(ruling_planets) if ruling_planets else ""
+        "ruling_planets": ",".join(combined_ruling_planets) if combined_ruling_planets else "",
+        "muhurta_ascendant": muhurta_chart["ascendant_degree"],
+        "analysis_method": "Authentic KP: Muhurta houses + Current planets"
     }
     summary.update(lord_details)
 

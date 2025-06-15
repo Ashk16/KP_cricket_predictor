@@ -1,0 +1,108 @@
+🔮 KP CRICKET PREDICTOR - PREDICTIVE ML TRAINING REPORT
+================================================================================
+🎯 TRULY PREDICTIVE: Uses ONLY pre-match features (Time + Location + KP)
+================================================================================
+📅 Generated: 2025-06-16 01:53:00
+🔖 Data Timestamp: 20250616_011758
+
+📊 DATASET INFORMATION:
+  Train: 21,575 periods
+  Test: 6,132 periods
+  Holdout: 3,086 periods
+
+🔮 PREDICTIVE FEATURE SET (PRE-MATCH ONLY):
+  Total features: 23
+
+  ✅ AVAILABLE BEFORE MATCH:
+    🔮 KP Astrological Features:
+      - kp_prediction_score (core KP prediction)
+      - kp_prediction_strength (prediction confidence)
+      - kp_favors_ascendant (team preference)
+      - KP derived features (squared, cubed, abs, etc.)
+
+    ⏰ Time Features:
+      - start_hour, start_minute, day_of_week, month
+      - is_morning, is_afternoon, is_evening, is_weekend
+
+    🌙 Planetary Features:
+      - moon_sl, moon_sub, moon_ssl (planetary lords)
+
+    🔗 KP-Time Interactions:
+      - kp_hour_interaction, kp_dayofweek_interaction, etc.
+
+  🚫 EXCLUDED (NOT AVAILABLE BEFORE MATCH):
+    ❌ Match outcome data (performance, runs, wickets)
+    ❌ Match duration and deliveries (unknown beforehand)
+    ❌ Any actual match results
+
+🤖 MODEL PERFORMANCE RESULTS:
+
+  GRADIENT BOOSTING:
+    Train Accuracy: 0.815
+    Test Accuracy: 0.793
+    CV Accuracy: 0.790 (±0.208)
+    Holdout Accuracy: 0.787
+    Best Parameters: {'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 100, 'subsample': 0.8}
+    Top 10 Features:
+       1. kp_prediction_score: 0.280
+       2. start_hour: 0.235
+       3. kp_directional: 0.174
+       4. kp_favors_ascendant: 0.160
+       5. moon_sub_encoded: 0.031
+       6. month: 0.030
+       7. kp_hour_interaction: 0.017
+       8. moon_sl_encoded: 0.016
+       9. kp_dayofweek_interaction: 0.015
+      10. is_evening: 0.010
+
+  RANDOM FOREST:
+    Train Accuracy: 0.945
+    Test Accuracy: 0.787
+    CV Accuracy: 0.759 (±0.153)
+    Holdout Accuracy: 0.792
+    Best Parameters: {'max_depth': 15, 'min_samples_leaf': 2, 'min_samples_split': 2, 'n_estimators': 200}
+    Top 10 Features:
+       1. start_hour: 0.185
+       2. kp_prediction_score: 0.104
+       3. kp_directional: 0.082
+       4. kp_favors_ascendant: 0.063
+       5. month: 0.063
+       6. kp_hour_interaction: 0.056
+       7. kp_dayofweek_interaction: 0.049
+       8. moon_sl_encoded: 0.046
+       9. moon_sub_encoded: 0.044
+      10. kp_minute_interaction: 0.034
+
+  LOGISTIC REGRESSION:
+    Train Accuracy: 0.600
+    Test Accuracy: 0.621
+    CV Accuracy: 0.589 (±0.052)
+    Holdout Accuracy: 0.606
+    Best Parameters: {'C': 0.1, 'penalty': 'l2', 'solver': 'liblinear'}
+    Top 10 Features:
+       1. start_hour: 0.339
+       2. kp_strength_cubed: 0.211
+       3. is_morning: 0.186
+       4. is_evening: 0.186
+       5. kp_strength_squared: 0.145
+       6. kp_score_squared: 0.145
+       7. kp_confidence: 0.145
+       8. kp_hour_interaction: 0.126
+       9. moon_sub_encoded: 0.123
+      10. kp_prediction_strength: 0.122
+
+📈 PREDICTIVE PERFORMANCE ANALYSIS:
+  🏆 Best Predictive Model: gradient_boosting (0.793)
+  📊 Improvement over random (50%): +29.3 percentage points
+  🎉 EXCELLENT: Strong predictive power using only pre-match data!
+      This is exceptional for sports prediction with astrological features.
+
+🔮 ASTROLOGICAL INSIGHTS:
+  🔮 KP Features Importance: 0.662 (66.2%)
+  ⏰ Time Features Importance: 0.309 (30.9%)
+  🌙 Planetary Features Importance: 0.047 (4.7%)
+
+✅ VALIDATION: 100% PREDICTIVE - No future data used!
+🔮 This model can make real predictions before matches start!
+🚀 PREDICTIVE ML TRAINING COMPLETE!
+================================================================================

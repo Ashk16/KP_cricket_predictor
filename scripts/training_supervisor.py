@@ -9,7 +9,9 @@ from scripts.kp_favorability_rules import evaluate_favorability
 from scripts.db_manager import init_database, save_match_data, save_delivery_data, save_astrological_data
 
 # Add project root to the Python path
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+current_script_path = os.path.abspath(__file__)
+scripts_dir = os.path.dirname(current_script_path)
+ROOT_DIR = os.path.dirname(scripts_dir)
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
@@ -25,6 +27,15 @@ def run_training_analysis(match_id, match_data, match_start_str, db_path, lat=0,
         venue = match_data.get('info', {}).get('venue', '')
         if not lat or not lon:
             print(f"Warning: No location data for match {match_id} at {venue}. Using default coordinates.")
+        
+        # Extract team information from match data
+        teams = match_data.get('info', {}).get('teams', [])
+        if len(teams) != 2:
+            print(f"Warning: Expected 2 teams, found {len(teams)} for match {match_id}")
+            teams = ['Team1', 'Team2']  # Fallback
+        
+        team1, team2 = teams[0], teams[1]
+        print(f"Teams: {team1} vs {team2}")
         
         # Prepare delivery data with realistic timestamps
         deliveries = []
@@ -52,6 +63,20 @@ def run_training_analysis(match_id, match_data, match_start_str, db_path, lat=0,
         for inning_num, inning in enumerate(match_data['innings'], 1):
             if 'overs' not in inning:
                 continue
+            
+            # Determine batting and bowling teams for this innings
+            batting_team = inning.get('team', '')
+            if batting_team == team1:
+                bowling_team = team2
+            elif batting_team == team2:
+                bowling_team = team1
+            else:
+                # Fallback if team name doesn't match
+                batting_team = team1 if inning_num == 1 else team2
+                bowling_team = team2 if inning_num == 1 else team1
+                print(f"Warning: Could not match innings team '{inning.get('team', '')}' to known teams. Using fallback.")
+            
+            print(f"Innings {inning_num}: {batting_team} batting, {bowling_team} bowling")
                 
             # Innings break (except for first inning)
             if inning_num > 1:
@@ -96,6 +121,8 @@ def run_training_analysis(match_id, match_data, match_start_str, db_path, lat=0,
                         'inning': inning_num,
                         'over': over_num + 1,  # Convert 0-based to 1-based
                         'ball': ball_num,
+                        'batting_team': batting_team,
+                        'bowling_team': bowling_team,
                         'batsman': delivery.get('batter', ''),
                         'bowler': delivery.get('bowler', ''),
                         'runs_off_bat': delivery.get('runs', {}).get('batter', 0),
@@ -194,37 +221,177 @@ def run_training_analysis(match_id, match_data, match_start_str, db_path, lat=0,
     finally:
         conn.close()
 
-def run_bulk_analysis():
+def run_basic_data_processing():
+    """Process only basic match and delivery data without astrological calculations"""
     db_path = os.path.join(ROOT_DIR, 'training_analysis', 'cricket_predictions.db')
     init_database(db_path)
     index_path = os.path.join(ROOT_DIR, 'match_data', 'match_index.csv')
+    
     if not os.path.exists(index_path):
         print(f"Error: Match index file not found at {index_path}")
         return
+    
     index_df = pd.read_csv(index_path, comment='#')
+    total_matches = len(index_df)
+    processed_matches = 0
+    
+    print(f"Starting basic data processing for {total_matches} matches...")
+    
     for _, row in index_df.iterrows():
         match_id_raw = str(row['match_id']) if 'match_id' in row else str(row['cricsheet_id'])
-        # Remove .json extension if present, then add it back
         match_id = match_id_raw.replace('.json', '')
-        lat = row['latitude'] if 'latitude' in row and not pd.isnull(row['latitude']) else None
-        lon = row['longitude'] if 'longitude' in row and not pd.isnull(row['longitude']) else None
-        if lat is None or lon is None:
-            print(f"Skipping match {match_id}: missing coordinates in index.")
-            continue
+        
+        # Get coordinates from index
+        lat = row.get('latitude') if 'latitude' in row and not pd.isnull(row.get('latitude')) else None
+        lon = row.get('longitude') if 'longitude' in row and not pd.isnull(row.get('longitude')) else None
+        
         json_path = os.path.join(ROOT_DIR, 'match_data', 'cricsheet_t20_json', f"{match_id}.json")
         if not os.path.exists(json_path):
             print(f"Warning: Match file not found: {json_path}")
             continue
-        with open(json_path, 'r') as f:
-            match_data = json.load(f)
-        run_training_analysis(
-            match_id=match_id,
-            match_data=match_data,
-            match_start_str=row['start_datetime'],
-            db_path=db_path,
-            lat=lat,
-            lon=lon
-        )
+            
+        try:
+            with open(json_path, 'r') as f:
+                match_data = json.load(f)
+            
+            run_basic_match_processing(
+                match_id=match_id,
+                match_data=match_data,
+                match_start_str=row['start_datetime'],
+                db_path=db_path,
+                lat=lat,
+                lon=lon
+            )
+            processed_matches += 1
+            
+            if processed_matches % 100 == 0:
+                print(f"Progress: {processed_matches}/{total_matches} matches processed")
+                
+        except Exception as e:
+            print(f"Error processing match {match_id}: {str(e)}")
+            continue
+    
+    print(f"Basic data processing complete: {processed_matches}/{total_matches} matches processed")
+
+def run_basic_match_processing(match_id, match_data, match_start_str, db_path, lat=None, lon=None):
+    """Process basic match data without astrological calculations"""
+    print(f"--- Processing Basic Data for: {match_id}.json ---")
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    
+    try:
+        # Save match metadata with coordinates
+        save_match_data(conn, match_id, match_data, match_start_str, lat, lon)
+        
+        # Extract team information from match data
+        teams = match_data.get('info', {}).get('teams', [])
+        if len(teams) != 2:
+            print(f"Warning: Expected 2 teams, found {len(teams)} for match {match_id}")
+            teams = ['Team1', 'Team2']  # Fallback
+        
+        team1, team2 = teams[0], teams[1]
+        
+        # Parse match start time
+        try:
+            match_start_dt = datetime.fromisoformat(match_start_str)
+        except:
+            match_date_str = match_data.get('info', {}).get('dates', ['2020-01-01'])[0]
+            match_start_dt = datetime.fromisoformat(f"{match_date_str}T19:30:00")
+        
+        # Known spinner bowlers
+        known_spinners = {
+            'R Ashwin', 'Harbhajan Singh', 'Yuzvendra Chahal', 'Kuldeep Yadav', 
+            'Washington Sundar', 'Ravindra Jadeja', 'Amit Mishra', 'Piyush Chawla',
+            'Imran Tahir', 'Rashid Khan', 'Mujeeb Ur Rahman', 'Sunil Narine',
+            'Andre Russell', 'Kieron Pollard', 'MS Dhoni'
+        }
+        
+        current_time = match_start_dt
+        prev_over = -1
+        prev_inning = 0
+        deliveries = []
+        
+        for inning_num, inning in enumerate(match_data['innings'], 1):
+            if 'overs' not in inning:
+                continue
+            
+            # Determine batting and bowling teams
+            batting_team = inning.get('team', '')
+            if batting_team == team1:
+                bowling_team = team2
+            elif batting_team == team2:
+                bowling_team = team1
+            else:
+                batting_team = team1 if inning_num == 1 else team2
+                bowling_team = team2 if inning_num == 1 else team1
+                
+            # Innings break
+            if inning_num > 1:
+                current_time += pd.Timedelta(minutes=20)
+                
+            for over_data in inning['overs']:
+                over_num = over_data.get('over', 0)
+                
+                # Over change time
+                if prev_inning == inning_num and over_num != prev_over:
+                    current_time += pd.Timedelta(seconds=60)
+                
+                for ball_num, delivery in enumerate(over_data.get('deliveries', []), 1):
+                    bowler = delivery.get('bowler', '')
+                    
+                    # Calculate delivery timing
+                    if any(spinner in bowler for spinner in known_spinners):
+                        base_delivery_time = 30
+                    else:
+                        base_delivery_time = 45
+                    
+                    extra_time = 0
+                    if delivery.get('wickets'):
+                        extra_time += 90
+                    
+                    runs = delivery.get('runs', {}).get('total', 0)
+                    if runs >= 4:
+                        extra_time += 15
+                    
+                    if delivery.get('runs', {}).get('extras', 0) > 0:
+                        extra_time += 10
+                    
+                    current_time += pd.Timedelta(seconds=base_delivery_time + extra_time)
+                    
+                    deliveries.append({
+                        'inning': inning_num,
+                        'over': over_num + 1,
+                        'ball': ball_num,
+                        'batting_team': batting_team,
+                        'bowling_team': bowling_team,
+                        'batsman': delivery.get('batter', ''),
+                        'bowler': delivery.get('bowler', ''),
+                        'runs_off_bat': delivery.get('runs', {}).get('batter', 0),
+                        'extras': delivery.get('runs', {}).get('extras', 0),
+                        'wicket_type': delivery.get('wickets', [{}])[0].get('kind', '') if delivery.get('wickets') else '',
+                        'dismissal': delivery.get('wickets', [{}])[0].get('player_out', '') if delivery.get('wickets') else '',
+                        'timestamp': current_time.isoformat()
+                    })
+                
+                prev_over = over_num
+                prev_inning = inning_num
+        
+        save_delivery_data(conn, match_id, deliveries)
+        print(f"--- Basic processing complete for {match_id}: {len(deliveries)} deliveries ---")
+        
+    except Exception as e:
+        print(f"Error processing match {match_id}: {str(e)}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+def run_bulk_analysis():
+    """Legacy function - now calls basic processing"""
+    run_basic_data_processing()
 
 if __name__ == '__main__':
-    run_bulk_analysis() 
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == '--basic':
+        run_basic_data_processing()
+    else:
+        run_bulk_analysis() 

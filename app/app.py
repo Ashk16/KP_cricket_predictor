@@ -53,43 +53,65 @@ NAKSHATRA_DF = cached_load_nakshatra_data()
 def find_next_ssl_change(current_dt: datetime, lat: float, lon: float, nakshatra_df: pd.DataFrame):
     """
     Calculates the exact datetime of the next Sub-Sub Lord change.
-    This is a more efficient approach than iterating minute-by-minute.
+    Enhanced with duplicate prevention and boundary validation.
     """
-    # 1. Get current moon position
-    jd = swe.julday(current_dt.year, current_dt.month, current_dt.day, current_dt.hour + current_dt.minute/60 + current_dt.second/3600 - 5.5)
-    pos = swe.calc_ut(jd, swe.MOON)
-    moon_long = pos[0][0]
-    moon_speed_deg_per_day = pos[0][3]
-    moon_speed_deg_per_sec = moon_speed_deg_per_day / (24 * 3600)
+    try:
+        # 1. Get current moon position
+        jd = swe.julday(current_dt.year, current_dt.month, current_dt.day, current_dt.hour + current_dt.minute/60 + current_dt.second/3600 - 5.5)
+        pos = swe.calc_ut(jd, swe.MOON)
+        moon_long = pos[0][0] % 360  # Ensure 0-360 range
+        moon_speed_deg_per_day = pos[0][3]
+        moon_speed_deg_per_sec = moon_speed_deg_per_day / (24 * 3600)
 
-    # 2. Find the current SSL's end degree
-    # Handle the wrap-around for the final entry in the table
-    current_row = nakshatra_df[(nakshatra_df['Start_Degree'] <= moon_long) & (nakshatra_df['End_Degree'] > moon_long)]
-    if current_row.empty and moon_long > 359.99:
-         current_row = nakshatra_df.iloc[-1:]
-
-    if current_row.empty:
-        # Fallback if something goes wrong, though it shouldn't
-        return current_dt + timedelta(minutes=1)
+        # 2. Find the current SSL's end degree
+        current_row = nakshatra_df[(nakshatra_df['Start_Degree'] <= moon_long) & (nakshatra_df['End_Degree'] > moon_long)]
         
-    end_degree = current_row.iloc[0]['End_Degree']
+        # Handle edge cases
+        if current_row.empty:
+            if moon_long >= 359.99:
+                current_row = nakshatra_df.iloc[-1:]
+            else:
+                # Fallback to fixed interval
+                return current_dt + timedelta(minutes=45)
 
-    # 3. Calculate time to reach the end degree
-    if end_degree < moon_long: # Handles the 360 -> 0 degree crossover
-        degrees_to_travel = (360 - moon_long) + end_degree
-    else:
-        degrees_to_travel = end_degree - moon_long
-    
-    # Add a tiny amount to degrees to ensure we are PAST the boundary
-    degrees_to_travel += 0.00001
+        if current_row.empty:
+            return current_dt + timedelta(minutes=45)
+            
+        end_degree = current_row.iloc[0]['End_Degree']
 
-    if moon_speed_deg_per_sec <= 0: # Should not happen
-        return current_dt + timedelta(minutes=1)
+        # 3. Calculate time to reach the end degree
+        if end_degree < moon_long:  # Handles the 360 -> 0 degree crossover
+            degrees_to_travel = (360 - moon_long) + end_degree
+        else:
+            degrees_to_travel = end_degree - moon_long
+        
+        # Add buffer to ensure we cross the boundary, but not too much to avoid precision issues
+        degrees_to_travel += 0.001
 
-    seconds_to_change = degrees_to_travel / moon_speed_deg_per_sec
-    
-    # Return the precise time of the next change
-    return current_dt + timedelta(seconds=seconds_to_change)
+        if moon_speed_deg_per_sec <= 0:  # Should not happen
+            return current_dt + timedelta(minutes=45)
+
+        seconds_to_change = degrees_to_travel / moon_speed_deg_per_sec
+        
+        # Calculate next change time
+        next_change_time = current_dt + timedelta(seconds=seconds_to_change)
+        
+        # Enforce minimum and maximum bounds to prevent edge cases
+        min_next_time = current_dt + timedelta(minutes=1)   # Minimum 1 minute gap
+        max_next_time = current_dt + timedelta(minutes=120) # Maximum 2 hours gap
+        
+        # Apply bounds
+        if next_change_time < min_next_time:
+            next_change_time = min_next_time
+        elif next_change_time > max_next_time:
+            next_change_time = max_next_time
+        
+        return next_change_time
+        
+    except Exception as e:
+        # Fallback on any calculation error
+        print(f"Error in find_next_ssl_change: {str(e)}")
+        return current_dt + timedelta(minutes=45)
 
 
 def generate_and_save_timeline(start_dt, lat, lon, match_name):
@@ -101,28 +123,83 @@ def generate_and_save_timeline(start_dt, lat, lon, match_name):
     # Use the pre-loaded Nakshatra data
     nakshatra_df = NAKSHATRA_DF
     
+    # Generate the MUHURTA CHART once (match start time) - this is the foundation
+    muhurta_chart = generate_kp_chart(start_dt, lat, lon, nakshatra_df)
+    if "error" in muhurta_chart:
+        st.error(f"Error generating muhurta chart: {muhurta_chart['error']}")
+        return None
+    
+    # Track last entry to prevent duplicates
+    last_entry = {
+        "moon_star_lord": None,
+        "sub_lord": None, 
+        "sub_sub_lord": None,
+        "datetime": None,
+        "final_score": None
+    }
+    
     with st.spinner(f"Generating timeline from {start_dt.strftime('%H:%M:%S')} to {end_dt.strftime('%H:%M:%S')}"):
         while current_dt < end_dt:
-            chart = generate_kp_chart(current_dt, lat, lon, nakshatra_df)
-            if "error" in chart:
-                st.error(f"Error generating chart for {current_dt}: {chart['error']}")
+            # Generate current moment chart (delivery time)
+            current_chart = generate_kp_chart(current_dt, lat, lon, nakshatra_df)
+            if "error" in current_chart:
+                st.error(f"Error generating chart for {current_dt}: {current_chart['error']}")
                 # On error, increment by a minute to avoid getting stuck in a loop
                 current_dt += timedelta(minutes=1)
                 continue
 
-            favorability_data = evaluate_favorability(chart, nakshatra_df)
+            # AUTHENTIC KP ANALYSIS: Use muhurta chart as foundation + current planetary positions
+            favorability_data = evaluate_favorability(muhurta_chart, current_chart, nakshatra_df)
+            
+            # Extract current lords for duplicate checking
+            current_star_lord = current_chart.get("moon_star_lord")
+            current_sub_lord = current_chart.get("moon_sub_lord")
+            current_sub_sub_lord = current_chart.get("moon_sub_sub_lord")
+            current_final_score = favorability_data.get("final_score")
+            
+            # Check for duplicates - skip if identical lords and score
+            is_duplicate = (
+                last_entry["moon_star_lord"] == current_star_lord and
+                last_entry["sub_lord"] == current_sub_lord and
+                last_entry["sub_sub_lord"] == current_sub_sub_lord and
+                abs((current_final_score or 0) - (last_entry["final_score"] or 0)) < 0.001
+            )
+            
+            # Check for minimum time gap (at least 30 seconds)
+            time_gap_too_small = False
+            if last_entry["datetime"]:
+                last_dt = datetime.strptime(last_entry["datetime"], "%Y-%m-%d %H:%M:%S")
+                time_diff = (current_dt - last_dt).total_seconds()
+                time_gap_too_small = time_diff < 30
+            
+            # Skip this entry if it's a duplicate or too close in time
+            if is_duplicate or time_gap_too_small:
+                # Find next SSL change but ensure minimum 1-minute jump to avoid infinite loops
+                next_dt = find_next_ssl_change(current_dt, lat, lon, nakshatra_df)
+                min_next_dt = current_dt + timedelta(minutes=1)
+                current_dt = max(next_dt, min_next_dt)
+                continue
             
             timeline_row = {
                 "datetime": current_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                "moon_star_lord": chart.get("moon_star_lord"),
-                "sub_lord": chart.get("moon_sub_lord"),
-                "sub_sub_lord": chart.get("moon_sub_sub_lord"),
+                "moon_star_lord": current_star_lord,
+                "sub_lord": current_sub_lord,
+                "sub_sub_lord": current_sub_sub_lord,
                 "moon_sl_score": favorability_data.get("moon_sl_score"),
                 "moon_sub_score": favorability_data.get("moon_sub_score"),
                 "moon_ssl_score": favorability_data.get("moon_ssl_score"),
-                "final_score": favorability_data.get("final_score"),
+                "final_score": current_final_score,
             }
             timeline_data.append(timeline_row)
+            
+            # Update last entry tracker
+            last_entry = {
+                "moon_star_lord": current_star_lord,
+                "sub_lord": current_sub_lord,
+                "sub_sub_lord": current_sub_sub_lord,
+                "datetime": current_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                "final_score": current_final_score
+            }
             
             # Intelligently jump to the next SSL change time
             current_dt = find_next_ssl_change(current_dt, lat, lon, nakshatra_df)
@@ -276,7 +353,7 @@ with st.sidebar:
         if location_query:
             with st.spinner("Finding location..."):
                 coords = get_coordinates(location_query)
-            if coords:
+            if coords and coords[0] is not None and coords[1] is not None:
                 st.session_state.latitude, st.session_state.longitude = coords
                 st.success(f"Found: Lat {coords[0]:.4f}, Lon {coords[1]:.4f}")
                 st.rerun()

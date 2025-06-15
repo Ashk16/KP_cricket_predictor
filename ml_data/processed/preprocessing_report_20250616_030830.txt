@@ -1,0 +1,49 @@
+🎯 KP CRICKET PREDICTOR - DATA PREPROCESSING REPORT
+============================================================
+Generated: 2025-06-16 03:08:30
+
+📊 ORIGINAL DATASET:
+  Total periods: 216,859
+  Total matches: 3,992
+  Average periods per match: 54.3
+  Overall accuracy: 49.8%
+
+🔍 FILTERED DATASET (High Quality):
+  Total periods: 30,793
+  Total matches: 557
+  Average periods per match: 55.3
+  Overall accuracy: 58.7%
+  Improvement: +8.9 percentage points
+
+⭐ MATCH QUALITY DISTRIBUTION:
+  Excellent (90+): 0 matches
+  Very Good (80-89): 0 matches
+  Good (70-79): 42 matches
+  Fair (60-69): 515 matches
+  Poor (<60): 3,435 matches
+
+📊 DATASET SPLITS:
+  Train:
+    Periods: 21,575
+    Matches: 389
+    Accuracy: 58.3%
+    Avg KP strength: 6.24
+  Test:
+    Periods: 6,132
+    Matches: 112
+    Accuracy: 60.0%
+    Avg KP strength: 5.43
+  Holdout:
+    Periods: 3,086
+    Matches: 56
+    Accuracy: 58.7%
+    Avg KP strength: 5.57
+
+🎯 TARGET DISTRIBUTION (Filtered Dataset):
+  0 (Incorrect): 12,726 (41.3%)
+  1 (Weak Correct): 3,016 (9.8%)
+  2 (Moderate Correct): 7,368 (23.9%)
+  3 (Strong Correct): 5,190 (16.9%)
+  4 (Very Strong Correct): 2,493 (8.1%)
+
+✅ PREPROCESSING COMPLETE - READY FOR MODEL TRAINING!

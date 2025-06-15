@@ -10,14 +10,14 @@ The KP Cricket Predictor is an advanced astrological prediction system that comb
 
 ## 🌟 **Core System Components**
 
-### **1. Timeline Prediction Engine**
-- **File**: `scripts/kp_timeline_predictor_fixed.py`
-- **Purpose**: Generates dynamic astrological periods with probability scores
+### **1. Live Prediction Engine**
+- **File**: `scripts/live_predictor.py`
+- **Purpose**: Main prediction interface with multi-target ML models
 - **Key Features**:
-  - Dynamic periods based on sub lord changes (15-90 minutes)
-  - Four probability scores: High Scoring, Collapse, Wicket Pressure, Momentum Shift
+  - Dynamic astrological periods based on planetary movements (15-90 minutes)
+  - Multi-target predictions: KP favorability, high scoring, wicket pressure, momentum shift
   - Team favorability analysis (Ascendant/Descendant)
-  - Comprehensive error handling and database validation
+  - Real-time timeline generation with comprehensive reporting
 
 ### **2. Chart Generation System**
 - **File**: `scripts/chart_generator.py`
@@ -37,39 +37,41 @@ The KP Cricket Predictor is an advanced astrological prediction system that comb
   - Hierarchical weighting: Cuspal Sub Lord (60%), Planet in House (25%), Aspects (15%)
   - Combustion and dignity analysis
 
-### **4. Machine Learning Integration**
-- **File**: `scripts/kp_enhanced_trainer.py`
-- **Purpose**: Trains ML models using astrological periods
+### **4. Machine Learning Pipeline**
+- **Files**: `scripts/predictive_ml_training.py`, `scripts/ml_data_preparation.py`
+- **Purpose**: Complete ML pipeline for multi-target prediction
 - **Key Features**:
-  - Period-consistent training (same periods used in predictions)
-  - 100+ KP features with duration-based weighting
-  - Ascendant/Descendant validation using historical performance
-  - Multiple model architectures (Random Forest, XGBoost, Neural Networks)
+  - Pre-match feature engineering (Time + Location + KP only)
+  - Multi-target training: KP prediction, high scoring, wicket pressure, momentum
+  - 216,859 astrological periods from 3,992 matches
+  - 79.3% accuracy for KP predictions, 77.8% for wicket pressure
 
-### **5. Team Assignment Validation**
-- **File**: `scripts/kp_ascendant_validator.py`
-- **Purpose**: Validates and corrects team assignments using historical data
+### **5. Astrological Data Processing**
+- **File**: `scripts/astro_processor.py`
+- **Purpose**: Processes delivery-level astrological data
 - **Key Features**:
-  - Performance-based validation with confidence scoring
-  - Automatic assignment correction when cosmic analysis indicates
-  - Statistical significance testing for assignment recommendations
+  - Ball-by-ball astrological analysis with KP calculations
+  - Batch processing with error handling and progress tracking
+  - Database integration with comprehensive validation
+  - Coordinate-based chart generation for accurate predictions
 
-### **6. Data Processing Pipeline**
-- **File**: `scripts/enhanced_kp_data_processor.py`
-- **Purpose**: Processes match data with muhurta chart integration
+### **6. Database Management**
+- **Files**: `scripts/db_manager.py`, `scripts/update_final_scores.py`, `scripts/verify_score_update.py`
+- **Purpose**: Database operations and score management
 - **Key Features**:
-  - Ball-by-ball astrological analysis
-  - Timestamp precision for accurate chart generation
-  - Database integration with comprehensive schema validation
+  - Database initialization and schema management
+  - Score updates with authentic KP methodology
+  - Data verification and integrity checking
+  - Comprehensive error handling and logging
 
-### **7. Training Supervisor**
-- **File**: `scripts/training_supervisor.py`
-- **Purpose**: Bulk processing of historical matches for model training
+### **7. Web Interface**
+- **Files**: `app/app.py`, `app/live_predictor_app.py`
+- **Purpose**: Interactive web applications for predictions
 - **Key Features**:
-  - Batch processing of 3,558+ matches
-  - 820,620+ delivery-level predictions
-  - Automated error handling and progress tracking
-  - Database storage with schema validation
+  - Streamlit-based user interfaces
+  - Real-time timeline prediction with visualizations
+  - Interactive charts and comprehensive reporting
+  - Multi-match prediction management
 
 ---
 

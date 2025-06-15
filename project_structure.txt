@@ -5,30 +5,36 @@
 ```
 KP_Cricket_Predictor/
 ├── 📁 scripts/                          # Core prediction engines
-│   ├── 🔮 chart_generator.py           # Swiss Ephemeris chart generation
-│   ├── ⚡ kp_timeline_predictor_fixed.py # Timeline with probability scores
-│   ├── 🧠 kp_enhanced_trainer.py       # ML model training
-│   ├── 🎯 kp_ascendant_validator.py    # Team assignment validation
-│   ├── 📈 enhanced_kp_data_processor.py # Muhurta chart processing
-│   ├── 🔍 kp_favorability_rules.py     # KP rule engine
-│   └── 📊 training_supervisor.py       # Bulk data processing
+│   ├── 🔮 live_predictor.py            # Main prediction interface
+│   ├── 🤖 predictive_ml_training.py    # Multi-target ML training
+│   ├── 📊 ml_data_preparation.py       # ML data preparation
+│   ├── ⚡ chart_generator.py           # Swiss Ephemeris chart generation
+│   ├── 🔍 kp_favorability_rules.py     # KP astrological rules
+│   ├── 🌟 astro_processor.py           # Astrological data processing
+│   ├── 📈 training_supervisor.py       # Training supervision
+│   ├── 🗄️ db_manager.py               # Database operations
+│   ├── 🔄 update_final_scores.py       # Score updates with KP
+│   └── ✅ verify_score_update.py       # Score verification
+├── 📁 app/                             # Web interfaces
+│   ├── 🌐 app.py                       # Main Streamlit app
+│   └── 🔮 live_predictor_app.py        # Live prediction interface
 ├── 📁 config/                          # Configuration files
+│   ├── 📋 nakshatra_sub_lords.csv      # Basic nakshatra mapping
 │   └── 📋 nakshatra_sub_lords_longitudes.csv # 249-point KP mapping
+├── 📁 models/                          # Trained ML models
+│   └── 🤖 multi_target_predictive_results_*.pkl # Multi-target models
+├── 📁 ml_data/                         # Training datasets
+│   └── 📊 kp_complete_training_data_*.csv # Complete training data
 ├── 📁 training_analysis/               # Database and analysis
 │   └── 🗄️ cricket_predictions.db      # SQLite database
-├── 📁 data/                           # Match data
-│   └── 📄 *.json                      # Cricket match files
-├── 📁 app/                            # Web interface
-│   └── 🌐 app.py                      # Flask web app
-├── 📁 match_data/                     # Additional match data
-├── 📁 model/                          # ML models
-├── 📁 results/                        # Analysis results
+├── 📁 match_data/                      # Match data files
+├── 📁 results/                         # Analysis results
 ├── 📁 docs/                           # Additional documentation
 ├── 📚 DATABASE_SCHEMA_DICTIONARY.md   # Complete database reference
 ├── 📊 CODEBASE_ANALYSIS_AND_DATA_DICTIONARY.md # Variable naming guide
 ├── 📋 ENHANCED_KP_SYSTEM_SUMMARY.md   # Technical implementation
-├── 📖 PROJECT_DOCUMENTATION.md        # This documentation
-├── 📖 README.md                       # User guide
+├── 📖 PROJECT_DOCUMENTATION.md        # Complete project documentation
+├── 📖 README.md                       # User guide and quick start
 ├── 📄 requirements.txt                # Python dependencies
 ├── 🔧 run_dashboard.bat              # Windows batch file
 └── 📄 project_structure.txt          # This file
@@ -37,59 +43,79 @@ KP_Cricket_Predictor/
 ## 🔧 **Key Files by Category**
 
 ### **Core Prediction System**
-- `scripts/kp_timeline_predictor_fixed.py` - Main timeline prediction engine
-- `scripts/chart_generator.py` - Astrological chart generation
-- `scripts/kp_favorability_rules.py` - KP astrological rules engine
+- `scripts/live_predictor.py` - Main prediction interface with multi-target ML
+- `scripts/chart_generator.py` - Astrological chart generation using Swiss Ephemeris
+- `scripts/kp_favorability_rules.py` - Traditional KP astrological rules engine
 
-### **Machine Learning & Training**
-- `scripts/kp_enhanced_trainer.py` - ML model training with KP features
-- `scripts/enhanced_kp_data_processor.py` - Data processing pipeline
+### **Machine Learning Pipeline**
+- `scripts/predictive_ml_training.py` - Multi-target ML training (79.3% accuracy)
+- `scripts/ml_data_preparation.py` - Training data preparation and feature engineering
+- `models/multi_target_predictive_results_*.pkl` - Trained models (4 targets)
+
+### **Data Processing**
+- `scripts/astro_processor.py` - Ball-by-ball astrological data processing
 - `scripts/training_supervisor.py` - Bulk historical data processing
-- `scripts/kp_ascendant_validator.py` - Team assignment validation
+- `scripts/db_manager.py` - Database operations and management
+
+### **Score Management**
+- `scripts/update_final_scores.py` - Updates scores with authentic KP methodology
+- `scripts/verify_score_update.py` - Verifies and validates score updates
+
+### **Web Applications**
+- `app/app.py` - Main Streamlit application
+- `app/live_predictor_app.py` - Live prediction interface with timeline visualization
 
 ### **Database & Configuration**
 - `training_analysis/cricket_predictions.db` - Main SQLite database
-- `config/nakshatra_sub_lords_longitudes.csv` - KP mapping configuration
+- `config/nakshatra_sub_lords_longitudes.csv` - 249-point KP mapping
 - `DATABASE_SCHEMA_DICTIONARY.md` - Complete schema reference
 
-### **User Interface**
-- `app/app.py` - Flask web application
-- `run_dashboard.bat` - Windows launcher script
-
 ### **Documentation**
-- `README.md` - User guide and quick start
+- `README.md` - User guide with quick start instructions
 - `PROJECT_DOCUMENTATION.md` - Complete project documentation
 - `ENHANCED_KP_SYSTEM_SUMMARY.md` - Technical implementation details
 - `CODEBASE_ANALYSIS_AND_DATA_DICTIONARY.md` - Variable naming guide
 
-### **Data & Results**
-- `data/*.json` - Historical cricket match data
-- `match_data/` - Additional match datasets
-- `results/` - Analysis outputs and predictions
-- `model/` - Trained ML models
+### **Training Data & Models**
+- `ml_data/kp_complete_training_data_*.csv` - 216,859 astrological periods
+- `models/` - Trained ML models with multi-target capabilities
 
-## 📊 **Database Files**
-- `training_analysis/cricket_predictions.db` - Main database (3,558 matches, 820,620 deliveries)
+## 📊 **Current Dataset**
+- **Total Periods**: 216,859 astrological periods
+- **Matches**: 3,992 matches processed
+- **Average**: 54.3 periods per match
+- **Features**: 23 pre-match features (Time + Location + KP)
 
-## 🔧 **Configuration Files**
-- `config/nakshatra_sub_lords_longitudes.csv` - 249-point KP sub lord mapping
-- `requirements.txt` - Python package dependencies
+## 🎯 **Model Performance**
+- **KP Prediction**: 79.3% accuracy (Gradient Boosting)
+- **Wicket Pressure**: 77.8% accuracy
+- **High Scoring**: 59.3% accuracy  
+- **Momentum Shift**: 53.9% accuracy
 
 ## 📈 **Current System Status**
-- ✅ **Total Scripts**: 7 core prediction engines
-- ✅ **Database Records**: 820,620+ deliveries processed
-- ✅ **Documentation**: 5 comprehensive documentation files
-- ✅ **Configuration**: Complete KP mapping and schema validation
-- ✅ **Web Interface**: Flask application with timeline predictions
+- ✅ **Active Scripts**: 10 core files (cleaned up from 23)
+- ✅ **ML Pipeline**: Complete multi-target training pipeline
+- ✅ **Web Interface**: 2 Streamlit applications
+- ✅ **Database**: Complete with 3,992 matches processed
+- ✅ **Documentation**: Updated and comprehensive
 
 ## 🎯 **Key Features Implemented**
-- Dynamic astrological periods (15-90 minutes)
-- Four probability scores per period
-- Team assignment validation with confidence scoring
-- Comprehensive error handling and database validation
-- Real-time timeline generation with KP analysis
-- Machine learning integration with period-based training
+- Multi-target ML predictions with 79.3% KP accuracy
+- Dynamic astrological periods based on planetary movements
+- Real-time timeline generation with match dynamics
+- Interactive web interface with visualization
+- Complete data pipeline from raw data to predictions
+- Authentic KP methodology with modern ML enhancement
+
+## 🧹 **Recent Cleanup**
+**Removed 13 unused/superseded files:**
+- Legacy ML training scripts (5 files)
+- Superseded KP prediction files (4 files) 
+- Unused utility scripts (3 files)
+- Old data preprocessing script (1 file)
+
+**Result**: Streamlined codebase with only active, production-ready files.
 
 ---
 
-**Last Updated**: Current enhanced system with probability scoring and comprehensive documentation 
+**Last Updated**: After comprehensive cleanup - Active production system with multi-target ML pipeline 

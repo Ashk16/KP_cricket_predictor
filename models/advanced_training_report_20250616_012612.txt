@@ -1,0 +1,23 @@
+KP CRICKET PREDICTOR - ADVANCED MODEL TRAINING REPORT
+======================================================================
+Generated: 2025-06-16 01:26:12
+
+DATASET INFORMATION:
+  Train: 21,575 periods
+  Test: 6,132 periods
+  Holdout: 3,086 periods
+
+FEATURE ENGINEERING:
+  Total features: 16
+  Features used: kp_prediction_score, kp_prediction_strength, kp_favors_ascendant, duration_minutes, num_deliveries, performance_difference, kp_strength_squared, kp_score_abs, performance_ratio, runs_ratio...
+
+BINARY CLASSIFICATION RESULTS:
+  ENSEMBLE:
+    Test Accuracy: 0.526
+
+PERFORMANCE ANALYSIS:
+  Best Model: ensemble (0.526 accuracy)
+  Improvement over random: +2.6 percentage points
+  ❌ Weak predictive performance - needs improvement
+
+ADVANCED MODEL TRAINING COMPLETE!
