@@ -1,7 +1,11 @@
-from scripts.chart_generator import generate_kp_chart
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+from chart_generator import generate_kp_chart
 import pandas as pd
 from datetime import datetime
 from typing import Dict, List, Tuple
+from kp_contradiction_system import KPContradictionSystem
 
 # Zodiac signs
 SIGNS = [
@@ -484,15 +488,30 @@ def get_planet_nature(planet: str) -> str:
             return nature
     return "neutral"
 
-def calculate_planet_strength(planet: str, chart: dict, ruling_planets: List[str], nakshatra_df: pd.DataFrame) -> Tuple[float, float, Dict]:
+def calculate_planet_strength(planet: str, chart: dict, ruling_planets: List[str], nakshatra_df: pd.DataFrame, corrected_scores: dict = None) -> Tuple[float, float, Dict]:
     """
     Calculates the Ascendant and Descendant scores for a single planet.
-    The nakshatra_df is passed in to avoid reloading the file.
+    
+    Args:
+        planet: Planet name
+        chart: Astrological chart
+        ruling_planets: List of ruling planets
+        nakshatra_df: Nakshatra data
+        corrected_scores: Pre-calculated Level 1 corrected scores (if available)
     """
     if not planet or planet not in chart["planets"]:
         return 0, 0, {}
 
-    # This function now expects nakshatra_df to be provided
+    # If corrected scores are provided (Level 1 contradictions already applied), use them
+    if corrected_scores and planet in corrected_scores:
+        corrected_net_score = corrected_scores[planet]
+        # Convert net score back to asc/desc format for compatibility
+        if corrected_net_score >= 0:
+            return corrected_net_score, 0, {"level1_applied": True, "corrected_score": corrected_net_score}
+        else:
+            return 0, -corrected_net_score, {"level1_applied": True, "corrected_score": corrected_net_score}
+
+    # Otherwise, calculate normally
     details = get_planet_details(planet, chart, nakshatra_df)
     
     # Initialize scores
@@ -589,17 +608,18 @@ def calculate_planet_strength(planet: str, chart: dict, ruling_planets: List[str
     return asc_score, desc_score, strength_details
 
 
-def evaluate_favorability(muhurta_chart: dict, current_chart: dict = None, nakshatra_df: pd.DataFrame = None) -> Dict:
+def evaluate_favorability(muhurta_chart: dict, current_chart: dict = None, nakshatra_df: pd.DataFrame = None, use_enhanced_rules: bool = True) -> Dict:
     """
-    Evaluates the overall favorability using AUTHENTIC KP METHODOLOGY:
+    Evaluates the overall favorability using AUTHENTIC KP METHODOLOGY with enhanced rules:
     1. Muhurta chart provides the house system (ascendant, house cusps)
     2. Current planetary positions are analyzed against muhurta chart houses
-    3. This mimics how a real KP astrologer analyzes match events
+    3. Enhanced with opposite result corrections and dynamic weighting
     
     Args:
         muhurta_chart: Chart cast for match start time (foundation)
         current_chart: Chart cast for current delivery time (if None, uses muhurta_chart)
         nakshatra_df: Nakshatra subdivision data
+        use_enhanced_rules: Whether to apply opposite result corrections and dynamic weighting
     """
     if not muhurta_chart or "error" in muhurta_chart:
         return {"error": "Invalid muhurta chart provided."}
@@ -644,33 +664,79 @@ def evaluate_favorability(muhurta_chart: dict, current_chart: dict = None, naksh
     moon_sub = current_chart.get("moon_sub_lord")
     moon_ssl = current_chart.get("moon_sub_sub_lord")
 
-    total_asc_score = 0
-    total_desc_score = 0
-    
+    # Apply Level 1 planet-level contradictions first (if enhanced rules enabled)
+    corrected_planet_scores = None
+    if use_enhanced_rules:
+        corrected_planet_scores = apply_chart_level_contradictions(analysis_chart, nakshatra_df)
+
+    # Calculate individual lord scores
+    lord_scores = {}
     lord_details = {}
 
     # Calculate strength for each lord using HYBRID analysis
     for lord_type, lord_name in [("moon_sl", moon_sl), ("moon_sub", moon_sub), ("moon_ssl", moon_ssl)]:
         if lord_name:
-            asc_score, desc_score, details = calculate_planet_strength(lord_name, analysis_chart, combined_ruling_planets, nakshatra_df)
+            asc_score, desc_score, details = calculate_planet_strength(
+                lord_name, analysis_chart, combined_ruling_planets, nakshatra_df, corrected_planet_scores
+            )
             
-            # The individual score for the lord is the net difference
-            lord_details[f"{lord_type}_score"] = asc_score - desc_score
+            # Store individual lord scores for enhanced rules
+            net_score = asc_score - desc_score
+            lord_scores[lord_type] = net_score
+            lord_details[f"{lord_type}_score"] = net_score
             lord_details[f"{lord_type}_details"] = details
-            
-            # Accumulate weighted scores for the final verdict
-            weight = LORD_WEIGHTS.get(lord_type.replace("moon_", ""), 0)
-            total_asc_score += asc_score * weight
-            total_desc_score += desc_score * weight
+        else:
+            lord_scores[lord_type] = 0
+            lord_details[f"{lord_type}_score"] = 0
 
-    # Final score is the difference between the weighted totals
-    final_score = total_asc_score - total_desc_score
+    # Apply Enhanced Rules if enabled
+    if use_enhanced_rules:
+        # 1. Apply opposite result corrections
+        corrected_scores = apply_opposite_result_corrections(lord_scores, analysis_chart, nakshatra_df)
+        
+        # 2. Calculate dynamic weights based on strength and relationships
+        dynamic_weights = calculate_dynamic_weights(corrected_scores, analysis_chart)
+        
+        # 3. Calculate final score with dynamic weighting
+        final_score = (
+            corrected_scores['moon_sl'] * dynamic_weights['sl'] +
+            corrected_scores['moon_sub'] * dynamic_weights['sub'] +
+            corrected_scores['moon_ssl'] * dynamic_weights['ssl']
+        )
+        
+        # 4. UPDATE THE INDIVIDUAL SCORES TO SHOW CORRECTED VALUES
+        lord_details['moon_sl_score'] = corrected_scores['moon_sl']
+        lord_details['moon_sub_score'] = corrected_scores['moon_sub'] 
+        lord_details['moon_ssl_score'] = corrected_scores['moon_ssl']
+        
+        # Store enhanced information
+        lord_details['enhanced_corrections'] = corrected_scores
+        lord_details['dynamic_weights'] = dynamic_weights
+        lord_details['base_weights'] = {'sl': 0.5, 'sub': 0.3, 'ssl': 0.2}
+        lord_details['original_scores'] = lord_scores  # Keep original for reference
+        
+    else:
+        # Use original fixed weighting
+        total_asc_score = 0
+        total_desc_score = 0
+        
+        for lord_type, lord_name in [("moon_sl", moon_sl), ("moon_sub", moon_sub), ("moon_ssl", moon_ssl)]:
+            if lord_name:
+                asc_score, desc_score, details = calculate_planet_strength(lord_name, analysis_chart, combined_ruling_planets, nakshatra_df, None)
+                
+                # Accumulate weighted scores for the final verdict
+                weight = LORD_WEIGHTS.get(lord_type.replace("moon_", ""), 0)
+                total_asc_score += asc_score * weight
+                total_desc_score += desc_score * weight
+
+        # Final score is the difference between the weighted totals
+        final_score = total_asc_score - total_desc_score
 
     summary = {
         "final_score": final_score,
         "ruling_planets": ",".join(combined_ruling_planets) if combined_ruling_planets else "",
         "muhurta_ascendant": muhurta_chart["ascendant_degree"],
-        "analysis_method": "Authentic KP: Muhurta houses + Current planets"
+        "analysis_method": f"Authentic KP: Muhurta houses + Current planets {'(Enhanced)' if use_enhanced_rules else '(Original)'}"
     }
     summary.update(lord_details)
 
@@ -686,3 +752,202 @@ def verdict_label(diff):
         return "Favors Descendant"
     else:
         return "Neutral"
+
+
+# Enhanced Rules Functions using Proper Contradiction Hierarchy
+
+# Initialize the contradiction system
+_contradiction_system = KPContradictionSystem()
+
+def apply_chart_level_contradictions(chart: dict, nakshatra_df: pd.DataFrame = None) -> dict:
+    """
+    Apply Level 1 planet-level contradictions to all planets in the chart.
+    
+    This should be called once per chart to get corrected planetary scores
+    that account for house co-placements and aspects.
+    
+    Returns: dict mapping planet names to corrected base strength scores
+    """
+    if not chart or "planets" not in chart:
+        return {}
+    
+    # Calculate base scores for all planets in the chart
+    ruling_planets = get_ruling_planets(chart, nakshatra_df) if nakshatra_df is not None else []
+    planet_base_scores = {}
+    
+    for planet_name in chart["planets"]:
+        if planet_name in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']:
+            # Calculate base strength for this planet
+            asc_score, desc_score, _ = calculate_planet_strength_base(planet_name, chart, ruling_planets, nakshatra_df)
+            net_score = asc_score - desc_score
+            planet_base_scores[planet_name] = net_score
+    
+    # Apply Level 1 contradictions to the base scores
+    corrected_scores = _contradiction_system.apply_level1_contradictions(planet_base_scores, chart)
+    
+    return corrected_scores
+
+def calculate_planet_strength_base(planet: str, chart: dict, ruling_planets: List[str], nakshatra_df: pd.DataFrame) -> Tuple[float, float, Dict]:
+    """
+    Calculate the base planet strength without Level 1 contradictions.
+    This is used internally by apply_chart_level_contradictions.
+    """
+    if not planet or planet not in chart["planets"]:
+        return 0, 0, {}
+
+    # Get planet details
+    details = get_planet_details(planet, chart, nakshatra_df)
+    
+    # Initialize scores
+    asc_score = 0
+    desc_score = 0
+    
+    # 1. Score based on house lordship and occupation (hierarchical)
+    planet_houses = get_significator_houses(planet, chart)
+    star_lord = details.get("star_lord")
+    sl_houses = get_significator_houses(star_lord, chart) if star_lord else []
+    slsl = details.get("star_lord_of_star_lord")
+    slsl_houses = get_significator_houses(slsl, chart) if slsl else []
+
+    # Apply scores with hierarchical weighting
+    for house in planet_houses:
+        w = HIERARCHICAL_WEIGHTS['planet']
+        asc_score += HOUSE_WEIGHTS_ASC.get(house, 0) * w
+        desc_score += HOUSE_WEIGHTS_DESC.get(house, 0) * w
+    
+    for house in sl_houses:
+        w = HIERARCHICAL_WEIGHTS['star_lord']
+        asc_score += HOUSE_WEIGHTS_ASC.get(house, 0) * w
+        desc_score += HOUSE_WEIGHTS_DESC.get(house, 0) * w
+
+    for house in slsl_houses:
+        w = HIERARCHICAL_WEIGHTS['slsl']
+        asc_score += HOUSE_WEIGHTS_ASC.get(house, 0) * w
+        desc_score += HOUSE_WEIGHTS_DESC.get(house, 0) * w
+
+    # 2. Apply Modifiers
+    # Dignity
+    dignity_multiplier = get_planet_dignity_strength(planet, chart)
+    asc_score *= dignity_multiplier
+    desc_score *= dignity_multiplier
+    
+    # Combust check
+    if is_combust(planet, chart):
+        asc_score *= COMBUST_MODIFIER
+        desc_score *= COMBUST_MODIFIER
+
+    # Ruling Planet Bonus
+    if planet in ruling_planets:
+        ruling_planet_multiplier = 1.2
+        asc_score *= ruling_planet_multiplier
+        desc_score *= ruling_planet_multiplier
+
+    # Aspects
+    aspect_modifier = get_planet_aspect_modifier(planet, chart)
+    if asc_score > desc_score:
+        asc_score *= aspect_modifier
+    else:
+        desc_score *= aspect_modifier
+
+    # Retrograde
+    if chart["planets"][planet].get("retrograde", False):
+        retro_multiplier = RETROGRADE_MODIFIERS.get(planet, 1.0)
+        asc_score *= retro_multiplier
+        desc_score *= retro_multiplier
+    
+    # High-Risk High-Reward
+    if any(h in [8, 12] for h in planet_houses) or (star_lord and any(h in [8, 12] for h in get_significator_houses(star_lord, chart))):
+         hrhr_multiplier = 0.6
+         if asc_score < desc_score:
+              desc_score *= hrhr_multiplier
+
+    return asc_score, desc_score, {}
+
+def apply_opposite_result_corrections(lord_scores: dict, chart: dict, nakshatra_df: pd.DataFrame) -> dict:
+    """
+    Apply any remaining corrections to lord scores.
+    
+    Note: Level 1 planet-level contradictions are now applied at the chart level
+    in apply_chart_level_contradictions(), so this function is mainly for
+    backward compatibility and any lord-specific corrections not handled elsewhere.
+    """
+    # Level 1 contradictions are now handled at chart level, so just return the scores
+    return lord_scores.copy()
+
+
+def calculate_dynamic_weights(lord_scores: dict, chart: dict) -> dict:
+    """
+    Calculate dynamic weights based on planetary strength and relationships.
+    
+    Note: Level 2 lordship contradictions are now handled in the hybrid model
+    for proper separation of concerns. This function focuses on basic strength-based weighting.
+    """
+    # Get absolute strengths
+    sl_strength = abs(lord_scores.get('moon_sl', 0))
+    sub_strength = abs(lord_scores.get('moon_sub', 0)) 
+    ssl_strength = abs(lord_scores.get('moon_ssl', 0))
+    
+    total_strength = sl_strength + sub_strength + ssl_strength
+    
+    # Default to fixed weights if no strength
+    if total_strength == 0:
+        return {'sl': 0.5, 'sub': 0.3, 'ssl': 0.2}
+    
+    # 1. Strength-proportional weights (70% based on strength, 30% hierarchy)
+    strength_weights = {
+        'sl': sl_strength / total_strength,
+        'sub': sub_strength / total_strength,
+        'ssl': ssl_strength / total_strength
+    }
+    
+    base_weights = {'sl': 0.5, 'sub': 0.3, 'ssl': 0.2}
+    
+    # Blend strength with hierarchy
+    dynamic_weights = {}
+    for lord in ['sl', 'sub', 'ssl']:
+        dynamic_weights[lord] = 0.7 * strength_weights[lord] + 0.3 * base_weights[lord]
+    
+    # 2. Check for dominant lord (3x stronger than average)
+    max_strength = max(sl_strength, sub_strength, ssl_strength)
+    avg_other_strength = (total_strength - max_strength) / 2
+    
+    if avg_other_strength > 0 and max_strength / avg_other_strength >= 3.0:
+        # One lord is dominant
+        if max_strength == sl_strength:
+            dynamic_weights = {'sl': 0.70, 'sub': 0.20, 'ssl': 0.10}
+        elif max_strength == sub_strength:
+            dynamic_weights = {'sl': 0.25, 'sub': 0.65, 'ssl': 0.10}
+        else:  # SSL is dominant
+            dynamic_weights = {'sl': 0.20, 'sub': 0.15, 'ssl': 0.65}
+    
+    # 3. Check for contradictions (opposite signs)
+    sl_score = lord_scores.get('moon_sl', 0)
+    sub_score = lord_scores.get('moon_sub', 0)
+    ssl_score = lord_scores.get('moon_ssl', 0)
+    
+    scores = [sl_score, sub_score, ssl_score]
+    positive_count = sum(1 for s in scores if s > 0)
+    negative_count = sum(1 for s in scores if s < 0)
+    
+    # If there's contradiction, give more weight to the strongest contradicting opinion
+    if min(positive_count, negative_count) > 0:
+        strengths = [sl_strength, sub_strength, ssl_strength]
+        max_strength_idx = strengths.index(max(strengths))
+        
+        # Give 20% bonus to the strongest lord in contradiction
+        lord_names = ['sl', 'sub', 'ssl']
+        strongest_lord = lord_names[max_strength_idx]
+        dynamic_weights[strongest_lord] += 0.2
+        
+        # Normalize weights
+        total_weight = sum(dynamic_weights.values())
+        dynamic_weights = {k: v/total_weight for k, v in dynamic_weights.items()}
+    
+    # Final normalization to ensure weights sum to 1.0
+    total_weight = sum(dynamic_weights.values())
+    if total_weight > 0:
+        dynamic_weights = {k: v/total_weight for k, v in dynamic_weights.items()}
+    else:
+        dynamic_weights = {'sl': 0.5, 'sub': 0.3, 'ssl': 0.2}
+    
+    return dynamic_weights

@@ -22,6 +22,7 @@ sys.path.insert(0, ROOT_DIR)
 
 from scripts.chart_generator import generate_kp_chart
 from scripts.kp_favorability_rules import evaluate_favorability
+from scripts.unified_kp_predictor import UnifiedKPPredictor
 
 # --- Configuration & Setup ---
 RESULTS_DIR = os.path.join(ROOT_DIR, "results")
@@ -50,6 +51,22 @@ def cached_load_nakshatra_data():
 NAKSHATRA_DF = cached_load_nakshatra_data()
 
 # --- Core Functions ---
+def parse_team_names(match_name: str):
+    """Parse team names from match name with multiple separator support"""
+    team_a = "TeamA"
+    team_b = "TeamB"
+    
+    # Try different common separators
+    separators = [" vs ", " v ", " VS ", " V ", " Vs "]
+    for sep in separators:
+        if sep in match_name:
+            team_parts = match_name.split(sep, 1)  # Split only on first occurrence
+            if len(team_parts) == 2:
+                team_a = team_parts[0].strip()
+                team_b = team_parts[1].strip()
+                break
+    
+    return team_a, team_b
 def find_next_ssl_change(current_dt: datetime, lat: float, lon: float, nakshatra_df: pd.DataFrame):
     """
     Calculates the exact datetime of the next Sub-Sub Lord change.
@@ -114,124 +131,41 @@ def find_next_ssl_change(current_dt: datetime, lat: float, lon: float, nakshatra
         return current_dt + timedelta(minutes=45)
 
 
-def generate_and_save_timeline(start_dt, lat, lon, match_name):
+def generate_and_save_timeline(start_dt, lat, lon, match_name, model_type="comprehensive", duration_hours=4):
     """Generates the timeline DataFrame and saves it to a CSV."""
-    timeline_data = []
-    current_dt = start_dt
-    end_dt = start_dt + timedelta(hours=4) # 4-hour match window
     
-    # Use the pre-loaded Nakshatra data
-    nakshatra_df = NAKSHATRA_DF
+    # Use unified predictor for both models
+    model_info = {"comprehensive": "🚀 Comprehensive KP Model", "legacy": "📊 Legacy KP Model"}
+    st.info(f"Using {model_info.get(model_type, model_type)} with unified architecture")
     
-    # Generate the MUHURTA CHART once (match start time) - this is the foundation
-    muhurta_chart = generate_kp_chart(start_dt, lat, lon, nakshatra_df)
-    if "error" in muhurta_chart:
-        st.error(f"Error generating muhurta chart: {muhurta_chart['error']}")
-        return None
+    predictor = UnifiedKPPredictor(model_type)
     
-    # Track last entry to prevent duplicates
-    last_entry = {
-        "moon_star_lord": None,
-        "sub_lord": None, 
-        "sub_sub_lord": None,
-        "datetime": None,
-        "final_score": None
-    }
+    # Convert datetime components
+    match_date = start_dt.strftime("%Y-%m-%d")
+    start_time = start_dt.strftime("%H:%M:%S")
     
-    with st.spinner(f"Generating timeline from {start_dt.strftime('%H:%M:%S')} to {end_dt.strftime('%H:%M:%S')}"):
-        while current_dt < end_dt:
-            # Generate current moment chart (delivery time)
-            current_chart = generate_kp_chart(current_dt, lat, lon, nakshatra_df)
-            if "error" in current_chart:
-                st.error(f"Error generating chart for {current_dt}: {current_chart['error']}")
-                # On error, increment by a minute to avoid getting stuck in a loop
-                current_dt += timedelta(minutes=1)
-                continue
-
-            # AUTHENTIC KP ANALYSIS: Use muhurta chart as foundation + current planetary positions
-            favorability_data = evaluate_favorability(muhurta_chart, current_chart, nakshatra_df)
-            
-            # Extract current lords for duplicate checking
-            current_star_lord = current_chart.get("moon_star_lord")
-            current_sub_lord = current_chart.get("moon_sub_lord")
-            current_sub_sub_lord = current_chart.get("moon_sub_sub_lord")
-            current_final_score = favorability_data.get("final_score")
-            
-            # Check for duplicates - skip if identical lords and score
-            is_duplicate = (
-                last_entry["moon_star_lord"] == current_star_lord and
-                last_entry["sub_lord"] == current_sub_lord and
-                last_entry["sub_sub_lord"] == current_sub_sub_lord and
-                abs((current_final_score or 0) - (last_entry["final_score"] or 0)) < 0.001
-            )
-            
-            # Check for minimum time gap (at least 30 seconds)
-            time_gap_too_small = False
-            if last_entry["datetime"]:
-                last_dt = datetime.strptime(last_entry["datetime"], "%Y-%m-%d %H:%M:%S")
-                time_diff = (current_dt - last_dt).total_seconds()
-                time_gap_too_small = time_diff < 30
-            
-            # Skip this entry if it's a duplicate or too close in time
-            if is_duplicate or time_gap_too_small:
-                # Find next SSL change but ensure minimum 1-minute jump to avoid infinite loops
-                next_dt = find_next_ssl_change(current_dt, lat, lon, nakshatra_df)
-                min_next_dt = current_dt + timedelta(minutes=1)
-                current_dt = max(next_dt, min_next_dt)
-                continue
-            
-            timeline_row = {
-                "datetime": current_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                "moon_star_lord": current_star_lord,
-                "sub_lord": current_sub_lord,
-                "sub_sub_lord": current_sub_sub_lord,
-                "moon_sl_score": favorability_data.get("moon_sl_score"),
-                "moon_sub_score": favorability_data.get("moon_sub_score"),
-                "moon_ssl_score": favorability_data.get("moon_ssl_score"),
-                "final_score": current_final_score,
-            }
-            timeline_data.append(timeline_row)
-            
-            # Update last entry tracker
-            last_entry = {
-                "moon_star_lord": current_star_lord,
-                "sub_lord": current_sub_lord,
-                "sub_sub_lord": current_sub_sub_lord,
-                "datetime": current_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                "final_score": current_final_score
-            }
-            
-            # Intelligently jump to the next SSL change time
-            current_dt = find_next_ssl_change(current_dt, lat, lon, nakshatra_df)
-
-
-    if not timeline_data:
-        st.warning("Could not generate any timeline data.")
-        return None
-
-    df = pd.DataFrame(timeline_data)
-        
-    # Set the verdict based on the final score
-    df['verdict'] = df['final_score'].apply(get_verdict_label)
+    # Parse team names with multiple separator support
+    team_a, team_b = parse_team_names(match_name)
     
-    # Metadata for saving in the file
-    metadata_lines = [
-        f"# Match: {match_name}\n",
-        f"# Date: {start_dt.strftime('%Y-%m-%d')}\n",
-        f"# Start Time: {start_dt.strftime('%H:%M:%S')}\n",
-        f"# Location: {lat}, {lon}\n"
-    ]
+    # Generate timeline using unified predictor
+    df = predictor.predict_match_timeline(
+        team_a=team_a, 
+        team_b=team_b, 
+        match_date=match_date,
+        start_time=start_time,
+        lat=lat, 
+        lon=lon, 
+        duration_hours=duration_hours
+    )
     
-    # Save to CSV
-    filename = f"{match_name.replace(' ', '_')}_{start_dt.strftime('%Y%m%d_%H%M%S')}.csv"
-    filepath = os.path.join(RESULTS_DIR, filename)
-
-    with open(filepath, 'w') as f:
-        f.writelines(metadata_lines)
+    # Save results using unified file manager
+    filepath = predictor.save_results(df)
     
-    df.to_csv(filepath, index=False, mode='a') # Append after metadata
+    # Convert datetime column back to string for display
+    df['datetime'] = df['datetime'].dt.strftime("%Y-%m-%d %H:%M:%S")
     
     return df, filepath
+
 
 def get_verdict_label(score):
     """Creates meaningful labels for score ranges."""
@@ -338,6 +272,22 @@ st.title("🪐 KP Cricket Predictor Dashboard")
 with st.sidebar:
     st.header("Match Settings")
     
+    # Model Selection
+    model_type = st.selectbox(
+        "Select KP Model",
+        ["comprehensive", "legacy"],
+        index=0,
+        help="Choose between different KP prediction models"
+    )
+    
+    # Model Info
+    if model_type == "comprehensive":
+        st.success("🚀 Comprehensive Model Active")
+        st.caption("✓ Dynamic weighting\n✓ Enhanced contradictions\n✓ Fixed planetary scores")
+    else:
+        st.info("📊 Legacy Model Active")
+        st.caption("✓ Fixed 50%-30%-20% weighting\n✓ Original KP calculations")
+    
     # Section: Generate New Timeline
     st.subheader("1. Generate New Timeline")
     
@@ -366,6 +316,16 @@ with st.sidebar:
     lat = st.number_input("Latitude", value=st.session_state.latitude, format="%.4f")
     lon = st.number_input("Longitude", value=st.session_state.longitude, format="%.4f")
     
+    # Timeline Duration Control
+    st.subheader("Timeline Duration")
+    duration_hours = st.slider("Match Duration (Hours)", 
+                              min_value=2, 
+                              max_value=10, 
+                              value=4, 
+                              step=1,
+                              help="Select how many hours of timeline to generate from match start time")
+    st.caption(f"Will generate timeline for {duration_hours} hours from match start")
+    
     # Generate Button
     if st.button("Generate Timeline"):
         try:
@@ -378,7 +338,9 @@ with st.sidebar:
                 match_datetime, 
                 lat, 
                 lon, 
-                match_name
+                match_name,
+                model_type,
+                duration_hours
             )
             
             if timeline_df is not None:
